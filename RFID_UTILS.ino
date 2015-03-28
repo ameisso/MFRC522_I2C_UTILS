@@ -1,22 +1,12 @@
 
-byte readCardType()
-{
-  Serial2.write(0x01);
-  byte C;
-  while (Serial2.available())
-  {
-    C = Serial2.read();
-  }
-  return C;
-}
 
 void readUID(byte *uid)
 {
-  Serial2.write(0x02);
+  HWSERIAL.write(0x02);
   int increment = 0;
-  while (Serial2.available())
+  while (HWSERIAL.available())
   {
-    byte C = Serial2.read();
+    byte C = HWSERIAL.read();
     if (C<16) C=0;
     uid[increment] = C;
     increment++;
@@ -56,12 +46,12 @@ void sendStringCommand(String command)
   }
   for(int i=0; i<comlen; i+=2)
   {
-    int c = Serial2.write( CMD[i]*16 + CMD[i+1]);
+    int c = HWSERIAL.write( CMD[i]*16 + CMD[i+1]);
   }
 }
 
 
-void readDataInBlock(int blockNumber) 
+void readDataInBlock(int blockNumber, String &dest) 
 {
   String blockNumberString = " "; 
   String keyType = "00"; 
@@ -75,21 +65,22 @@ void readDataInBlock(int blockNumber)
   String s = "AB 0A 03 "+ blockNumberString + " " + keyType + " " + key;
   sendStringCommand(s); 
   String response; 
-  while (Serial2.available()) {
-    byte C = Serial2.read();
+  while (HWSERIAL.available()) {
+    byte C = HWSERIAL.read();
     if (C<16) response += "0";
     response += decToHex(C);
     response += " ";
   }
   if (! response.startsWith("AB 12 03"))
   {
-    Serial.println("error reading data");
+    //Serial.println("error reading data");
   }
   else
   {
-    String humanRedableResponse ="";
     response = response.substring(9);
-    printResponse(response);
+    String humanRedableResponse;
+    printResponse(response,humanRedableResponse);
+    dest = humanRedableResponse;
   }
   delay(100);
 }
@@ -111,7 +102,7 @@ void writeDataToBlock(String data, int blockNumber)
   int charsToAdd = 16- data.length() ; 
   for (int i = 0 ; i < charsToAdd+1 ; i++)
   {
-    hexData += " FF";
+    hexData += " 00";
   }
   String blockNumberString = " "; 
   String keyType = "00"; 
@@ -125,8 +116,8 @@ void writeDataToBlock(String data, int blockNumber)
   String s = "AB 1A 04 "+ blockNumberString + " " + keyType + " " + key+" "+ hexData;
   sendStringCommand(s); 
   String response; 
-  while (Serial2.available()) {
-    byte C = Serial2.read();
+  while (HWSERIAL.available()) {
+    byte C = HWSERIAL.read();
     if (C<16) response += "0";
     response += decToHex(C);
     response += " ";
@@ -142,22 +133,23 @@ void writeDataToBlock(String data, int blockNumber)
   delay(1000);
 }
 
-void printResponse(String response) 
+void printResponse(String response,String &dest) 
 {
   String humanRedableResponse ="";
-  for(int i=0; i<response.length(); i+=3)
+  int eof = response.indexOf('00',HEX);
+  for(int i=0; i<eof; i+=3)
   {
     humanRedableResponse += hexToChar(response.substring(i,i+2));
   }
-  Serial.println(humanRedableResponse);
+  dest = humanRedableResponse;
 }
 
 void standbyMode()
 {
   sendStringCommand("AB 02 10"); 
   String response; 
-  while (Serial2.available()) {
-    byte C = Serial2.read();
+  while (HWSERIAL.available()) {
+    byte C = HWSERIAL.read();
     if (C<16) response += "0";
     response += decToHex(C);
     response += " ";
